@@ -1,0 +1,156 @@
+#include <ESP8266WiFi.h>
+#include <Servo.h>
+
+//quita del programa todo lo que este ligado al error, y ve agregandolo de a poco. Hasta encontrar lo que agregas y arroja el error
+//Haz que imprima a medida que ejecuta codigo, y donde deje de imprimir, de hay en adelante falla.
+//A medida que agregas codigo verifica si esta bueno, para ver donde detecta errores con cada pequeño cambio
+
+
+// Definimos los pines donde tenemos conectadas las bobinas
+//
+//opciones D0 - D8,Tx
+
+const int AnalogIn = A0;
+
+int readingIn=0;
+
+int pin_servo = 0; // D3->servo
+Servo myServo;
+
+int motores[2][4] =
+{
+  //D0,D1,D2,D4
+  {16,5,4,2},
+  // D6,D7,D8,tx
+  //{12,13,15,1}
+  // D5,D6,D7,D8
+  {14,12,13,15}
+  // D3,D6,D7,D8
+  //{0,12,13,15}
+};
+
+int FR= 3500;
+int ct=0;
+int input=35;
+ 
+// Secuencia de pasos (par máximo)
+
+int pstop [4][4] =
+{
+  {0, 0, 0, 0},
+  {0, 0, 0, 0},
+  {0, 0, 0, 0},
+  {0, 0, 0, 0}
+};
+
+int padelante [4][4] =
+{
+  {1, 0, 0, 0},
+  {0, 1, 0, 0},
+  {0, 0, 1, 0},
+  {0, 0, 0, 1}
+};
+
+int patras [4][4] =
+{
+  {0, 0, 0, 1},
+  {0, 0, 1, 0},
+  {0, 1, 0, 0},
+  {1, 0, 0, 0}
+};
+
+void setup()
+{
+  //Comunicacion serial configuracion (serial rate)
+  Serial.begin(9600);
+  delay(1000);
+  Serial.println("Iniciado");
+  // Todos los pines en modo salida
+
+  pinMode(pin_servo, OUTPUT);
+  myServo.attach(pin_servo, 900, 2500); // Defines on which pin is the servo motor attached
+
+  pinMode(motores[0][0], OUTPUT);
+  pinMode(motores[0][1], OUTPUT);
+  pinMode(motores[0][2], OUTPUT);
+  pinMode(motores[0][3], OUTPUT);
+
+  pinMode(motores[1][0], OUTPUT);
+  pinMode(motores[1][1], OUTPUT);
+  pinMode(motores[1][2], OUTPUT);
+  pinMode(motores[1][3], OUTPUT);
+}
+
+void loop()
+{
+  if (Serial.available()>0)
+  {
+    String str = Serial.readStringUntil('\n');
+    input = str.toInt();
+    Serial.println(input);
+    Serial.println(".");
+  }
+  delay(300);
+  Serial.print(".");
+  readingIn = analogRead(AnalogIn);
+  if (readingIn<500 && readingIn>100)
+  {
+    myServo.write(180);
+    delay(500);
+    Serial.println("Motor derecha");
+    Serial.println(input);
+    Serial.println(readingIn);
+    mover_step(motores [0], input, FR);
+    myServo.write(5);
+  }
+  if (readingIn>500)
+  {
+    myServo.write(5);
+    delay(500);
+    Serial.println("Motor izquierda");
+    Serial.println(input);
+    Serial.println(readingIn);
+    mover_step(motores [1], input*-1, FR);
+    myServo.write(180);
+  }
+}
+
+void mover_step (int motor [4], int input, int FR)
+{
+  if (input > 0)
+  {
+    Serial.println("Adelante");
+    rutina_step (motor, padelante, input*2.86, FR);
+  }
+  if (input == 0)
+  {
+    Serial.println("No se mueve");
+  }
+  if (input < 0)
+  {
+    Serial.println("Atras");
+    rutina_step (motor, patras, input*-2.86, FR);
+  }
+}
+
+void rutina_step (int motor [4], int pdireccion[][4],int in, int FR)
+{
+/*
+Que el motor stepper "motor" se mueva una cantidad "pasos" de pasos en la direccion "direccion" a una velocidad "FR".
+ */
+  for (int k = 0; k < 5; k++)
+  {
+    delay(50);
+    for (int j = 0; j < in; j++)
+    {
+      for (int i = 0; i < 4; i++)
+      {
+        digitalWrite(motor[0], pdireccion[i][0]);
+        digitalWrite(motor[1], pdireccion[i][1]);
+        digitalWrite(motor[2], pdireccion[i][2]);
+        digitalWrite(motor[3], pdireccion[i][3]);
+        delayMicroseconds(FR);
+      }
+    }
+  }
+}
